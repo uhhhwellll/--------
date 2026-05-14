@@ -1,0 +1,30 @@
+{
+  "name": "electronics-marketplace",
+  "version": "1.0.0",
+  "description": "Full-stack electronics marketplace with authentication",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "seed": "node seeders/seedData.js",
+    "add-products": "node add-products.js",
+    "reset-db": "node seeders/seedData.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "ejs": "^3.1.10",
+    "express": "^4.22.1",
+    "express-session": "^1.17.3",
+    "express-validator": "^7.3.2",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.22.3",
+    "sequelize": "^6.37.8",
+    "sqlite3": "^6.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

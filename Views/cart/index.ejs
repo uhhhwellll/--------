@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart - ElectroMart</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <%- include('../partials/header') %>
+    
+    <main class="container">
+        <div style="padding: 2rem 0;">
+            <h1>Shopping Cart</h1>
+            
+            <div id="cartContent">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </main>
+    
+    <%- include('../partials/footer') %>
+    
+    <script>
+        function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    async function loadCart() {
+        try {
+            const token = getCookie('token');
+            
+            if (!token) {
+                // No token found, redirect to login
+                document.getElementById('cartContent').innerHTML = `
+                    <div style="text-align: center; padding: 3rem;">
+                        <p style="font-size: 1.2rem; color: #6b7280; margin-bottom: 1rem;">
+                            Please login to view your cart
+                        </p>
+                        <a href="/login" class="btn btn-primary" style="text-decoration: none;">Login</a>
+                        <a href="/register" class="btn" style="margin-left: 1rem; text-decoration: none;">Register</a>
+                    </div>
+                `;
+                return;
+            }
+
+            const response = await fetch('/api/cart', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
+            if (response.status === 401) {
+                // Not authenticated
+                document.getElementById('cartContent').innerHTML = `
+                    <div style="text-align: center; padding: 3rem;">
+                        <p style="font-size: 1.2rem; color: #6b7280; margin-bottom: 1rem;">
+                            Please login to view your cart
+                        </p>
+                        <a href="/login" class="btn btn-primary" style="text-decoration: none;">Login</a>
+                    </div>
+                `;
+                return;
+            }
+            
+            const data = await response.json();
+            console.log('Cart data:', data);
+            displayCart(data.cart);
+        } catch (error) {
+            console.error('Error loading cart:', error);
+            document.getElementById('cartContent').innerHTML = 
+                '<div class="alert alert-error">Error loading cart. Please try again.</div>';
+        }
+    }
+        
+       function displayCart(cart) {
+    const container = document.getElementById('cartContent');
+    
+    if (!cart || !cart.Products || cart.Products.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 3rem;">
+                <p style="font-size: 1.2rem; color: #6b7280;">Your cart is empty</p>
+                <a href="/products" class="btn btn-primary" style="margin-top: 1rem; display: inline-block; text-decoration: none;">Browse Products</a>
+            </div>
+        `;
+        return;
+    }
+    
+    // Calculate total with proper number parsing
+    let total = 0;
+    cart.Products.forEach(product => {
+        const price = parseFloat(product.price) || 0;
+        const quantity = product.CartItems ? (parseInt(product.CartItems.quantity) || 1) : 1;
+        total += price * quantity;
+    });
+    
+    container.innerHTML = `
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+            <div>
+                ${cart.Products.map(product => {
+                    const price = parseFloat(product.price) || 0;
+                    const quantity = product.CartItems ? (parseInt(product.CartItems.quantity) || 1) : 1;
+                    const itemTotal = price * quantity;
+                    const stock = parseInt(product.stock) || 0;
+                    const maxReached = quantity >= stock;
+                    
+                    return `
+                        <div class="cart-item" id="cart-item-${product.id}">
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                        width: 80px; height: 80px; border-radius: 0.5rem; 
+                                        display: flex; align-items: center; justify-content: center; 
+                                        color: white; font-size: 2rem;">
+                                📱
+                            </div>
+                            <div class="cart-item-details">
+                                <h3>${product.name || 'Unknown Product'}</h3>
+                                <p style="color: #6b7280;">${product.brand || ''}</p>
+                                <p style="font-weight: bold; color: #2563eb;">$${price.toFixed(2)} each</p>
+                                
+                                ${maxReached ? 
+                                    `<p style="color: #dc2626; font-size: 0.875rem; margin-top: 0.25rem;">
+                                        ⚠️ Maximum stock reached (${stock} available)
+                                    </p>` : 
+                                    `<p style="color: #6b7280; font-size: 0.875rem; margin-top: 0.25rem;">
+                                        ${stock} available in stock
+                                    </p>`
+                                }
+                                
+                                <div style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.25rem;">
+                                        <button class="quantity-btn" 
+                                                onclick="updateQuantity(${product.id}, ${quantity - 1})"
+                                                ${quantity <= 1 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}
+                                                style="padding: 0.25rem 0.5rem; border: 1px solid #d1d5db; background: white; border-radius: 0.25rem; cursor: pointer;">
+                                            −
+                                        </button>
+                                        
+                                        <input 
+                                            type="number" 
+                                            id="qty-input-${product.id}"
+                                            value="${quantity}"
+                                            min="1"
+                                            max="${stock}"
+                                            onchange="handleQuantityInput(${product.id}, this.value, ${stock}, ${quantity})"
+                                            onkeydown="handleQuantityKeydown(event, ${product.id}, ${stock}, ${quantity})"
+                                            style="width: 60px; text-align: center; padding: 0.25rem; 
+                                                   border: 1px solid #d1d5db; border-radius: 0.25rem; 
+                                                   font-size: 0.9rem;"
+                                        />
+                                        
+                                        <button class="quantity-btn" 
+                                                onclick="updateQuantity(${product.id}, ${quantity + 1})"
+                                                ${maxReached ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}
+                                                style="padding: 0.25rem 0.5rem; border: 1px solid #d1d5db; background: white; border-radius: 0.25rem; cursor: pointer;">
+                                            +
+                                        </button>
+                                    </div>
+                                    
+                                    <button onclick="removeFromCart(${product.id})" 
+                                            class="btn btn-danger" 
+                                            style="padding: 0.25rem 0.75rem; font-size: 0.8rem;">
+                                        🗑 Remove
+                                    </button>
+                                </div>
+                                
+                                <div id="qty-error-${product.id}" style="color: #dc2626; font-size: 0.8rem; margin-top: 0.25rem; display: none;"></div>
+                            </div>
+                            <div style="text-align: right; min-width: 100px;">
+                                <p style="font-weight: bold; font-size: 1.2rem; color: #2563eb;" id="item-total-${product.id}">
+                                    $${itemTotal.toFixed(2)}
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+            
+            <div style="background: white; padding: 1.5rem; border-radius: 0.5rem; 
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.1); height: fit-content;">
+                <h2 style="margin-bottom: 1rem;">Order Summary</h2>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span>Subtotal (${cart.Products.length} items):</span>
+                    <span id="cart-subtotal">$${total.toFixed(2)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span>Shipping:</span>
+                    <span style="color: #059669;">Free</span>
+                </div>
+                <hr style="margin: 1rem 0;">
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; margin-bottom: 1rem;">
+                    <span>Total:</span>
+                    <span id="cart-total">$${total.toFixed(2)}</span>
+                </div>
+                <button onclick="checkout()" class="btn btn-primary" style="width: 100%; padding: 0.75rem; font-size: 1.1rem;">
+                    Proceed to Checkout
+                </button>
+                <button onclick="clearCart()" class="btn btn-danger" style="width: 100%; margin-top: 0.5rem;">
+                    Clear Cart
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Handle quantity input changes with validation
+function handleQuantityInput(productId, inputValue, maxStock, currentQuantity) {
+    const errorDiv = document.getElementById(`qty-error-${productId}`);
+    const inputField = document.getElementById(`qty-input-${productId}`);
+    
+    // Hide error initially
+    if (errorDiv) errorDiv.style.display = 'none';
+    
+    // Parse the input
+    let newQuantity = parseInt(inputValue);
+    
+    // Check if it's a valid number
+    if (isNaN(newQuantity) || inputValue === '' || inputValue === null) {
+        if (errorDiv) {
+            errorDiv.textContent = 'Please enter a valid number';
+            errorDiv.style.display = 'block';
+        }
+        // Reset to current quantity
+        if (inputField) inputField.value = currentQuantity;
+        return;
+    }
+    
+    // Check if quantity is less than 1
+    if (newQuantity < 1) {
+        if (errorDiv) {
+            errorDiv.textContent = 'Quantity cannot be less than 1';
+            errorDiv.style.display = 'block';
+        }
+        if (inputField) inputField.value = currentQuantity;
+        return;
+    }
+    
+    // Check if quantity exceeds stock
+    if (newQuantity > maxStock) {
+        if (errorDiv) {
+            errorDiv.textContent = `Cannot exceed maximum stock of ${maxStock} items`;
+            errorDiv.style.display = 'block';
+        }
+        if (inputField) inputField.value = currentQuantity;
+        return;
+    }
+    
+    // Valid quantity - update it
+    if (newQuantity === currentQuantity) {
+        // No change needed
+        return;
+    }
+    
+    updateQuantity(productId, newQuantity);
+}
+
+// Handle keyboard events for the input field
+function handleQuantityKeydown(event, productId, maxStock, currentQuantity) {
+    // Allow: backspace, delete, tab, escape, enter, arrows
+    const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+    
+    if (allowedKeys.includes(event.key)) {
+        // Allow Enter to trigger update
+        if (event.key === 'Enter') {
+            event.target.blur(); // Remove focus to trigger onchange
+        }
+        return;
+    }
+    
+    // Ensure it's a number key
+    if (!/^\d$/.test(event.key)) {
+        event.preventDefault();
+    }
+}
+
+async function updateQuantity(productId, quantity) {
+    if (quantity < 1) return;
+    
+    const token = getCookie('token');
+    if (!token) {
+        window.location.href = '/login';
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/cart/update', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            credentials: 'include',
+            body: JSON.stringify({ 
+                productId: parseInt(productId), 
+                quantity: parseInt(quantity) 
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            loadCart(); // Reload cart to show updated values
+        } else {
+            // Show error from server
+            const errorDiv = document.getElementById(`qty-error-${productId}`);
+            if (errorDiv) {
+                errorDiv.textContent = data.error || 'Error updating quantity';
+                errorDiv.style.display = 'block';
+            }
+            // Reset input field
+            const inputField = document.getElementById(`qty-input-${productId}`);
+            if (inputField) {
+                const cartItem = data.cart?.Products?.find(p => p.id === productId);
+                inputField.value = cartItem?.CartItems?.quantity || 1;
+            }
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        const errorDiv = document.getElementById(`qty-error-${productId}`);
+        if (errorDiv) {
+            errorDiv.textContent = 'Network error. Please try again.';
+            errorDiv.style.display = 'block';
+        }
+    }
+}
+        
+        async function updateQuantity(productId, quantity) {
+            if (quantity < 1) return;
+            
+            try {
+                const response = await fetch('/api/cart/update', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        productId: parseInt(productId), 
+                        quantity: parseInt(quantity) 
+                    })
+                });
+                
+                if (response.ok) {
+                    loadCart(); // Reload cart to show updated values
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Error updating quantity');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error updating cart');
+            }
+        }
+        
+        async function removeFromCart(productId) {
+            if (!confirm('Remove this item from cart?')) return;
+            
+            try {
+                const response = await fetch(`/api/cart/remove/${productId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    loadCart(); // Reload cart
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Error removing item');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        async function clearCart() {
+            if (!confirm('Are you sure you want to clear your entire cart?')) return;
+            
+            try {
+                const response = await fetch('/api/cart/clear', {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    loadCart(); // Reload cart
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Error clearing cart');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        async function checkout() {
+    const shippingAddress = prompt('Enter your shipping address:');
+    if (!shippingAddress) return;
+    
+    const paymentMethod = prompt('Enter payment method (credit card, paypal, etc.):');
+    if (!paymentMethod) return;
+    
+    const token = getCookie('token');
+    if (!token) {
+        alert('Please login first');
+        window.location.href = '/login';
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/orders', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                shippingAddress: shippingAddress,
+                paymentMethod: paymentMethod
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(`Order #${data.order.id} created successfully! Total: $${parseFloat(data.order.totalAmount).toFixed(2)}`);
+            window.location.href = '/orders';
+        } else {
+            alert(data.error || 'Error creating order');
+        }
+    } catch (error) {
+        console.error('Checkout error:', error);
+        alert('Error creating order. Please try again.');
+    }
+}
+        
+        // Load cart when page loads
+        loadCart();
+    </script>
+</body>
+</html>

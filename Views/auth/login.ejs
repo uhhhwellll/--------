@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - ElectroMart</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <%- include('../partials/header') %>
+    
+    <main class="container">
+        <div class="auth-form">
+            <h2 style="text-align: center; margin-bottom: 2rem;">Login to Your Account</h2>
+            
+            <div id="errorMessage" class="alert alert-error" style="display: none;"></div>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="email">Email</label>
+                    <input type="email" id="email" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" id="password" class="form-input" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem; font-size: 1.1rem;">
+                    Login
+                </button>
+            </form>
+            
+            <p style="text-align: center; margin-top: 1rem;">
+                Don't have an account? <a href="/register">Register here</a>
+            </p>
+            
+            <div style="margin-top: 1rem; padding: 1rem; background: #f3f4f6; border-radius: 0.5rem;">
+                <p style="font-weight: bold; margin-bottom: 0.5rem;">Test Accounts:</p>
+                <p style="font-size: 0.875rem;">Admin: admin@electronics.com / admin123</p>
+                <p style="font-size: 0.875rem;">User: john@example.com / user123</p>
+            </div>
+        </div>
+    </main>
+    
+    <%- include('../partials/footer') %>
+    
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('errorMessage');
+            
+            errorDiv.style.display = 'none';
+            
+            if (!email || !password) {
+                errorDiv.textContent = 'Please fill in all fields';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                console.log('Response:', data); // Debug log
+                
+                if (response.ok) {
+                    // Store token if available
+                    if (data.token) {
+                        document.cookie = `token=${data.token}; path=/; max-age=86400`;
+                    }
+                    window.location.href = '/products';
+                } else {
+                    errorDiv.textContent = data.error || 'Login failed';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                errorDiv.textContent = 'Network error. Please try again.';
+                errorDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

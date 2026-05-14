@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seller Profile - ElectroMart</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .profile-container {
+            max-width: 800px;
+            margin: 2rem auto;
+        }
+        
+        .profile-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            background: #2563eb;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        
+        .profile-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+        
+        .verified-badge {
+            display: inline-block;
+            background: #059669;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.875rem;
+        }
+        
+        .not-verified-badge {
+            display: inline-block;
+            background: #dc2626;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.875rem;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+        
+        .info-item {
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .info-value {
+            font-weight: 500;
+            color: #1f2937;
+            font-size: 1.05rem;
+        }
+        
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #2563eb;
+            display: inline-block;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: #f9fafb;
+            padding: 1.25rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: bold;
+            color: #2563eb;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/header') %>
+    
+    <main class="container">
+        <div class="profile-container">
+            <h1 style="margin-bottom: 2rem;">📋 Seller Profile</h1>
+            
+            <div id="profileContent">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </main>
+    
+    <%- include('partials/footer') %>
+    
+    <script>
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+        
+        function deleteCookie(name) {
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        }
+        
+        async function loadProfile() {
+            const token = getCookie('token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/auth/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                const data = await response.json();
+                const user = data.user;
+                
+                // Redirect non-sellers away
+                if (user.role !== 'seller' && user.role !== 'admin') {
+                    window.location.href = '/seller/dashboard';
+                    return;
+                }
+                
+                displaySellerProfile(user);
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                document.getElementById('profileContent').innerHTML = 
+                    '<div class="alert alert-error">Error loading profile</div>';
+            }
+        }
+        
+        function displaySellerProfile(user) {
+            const container = document.getElementById('profileContent');
+            
+            container.innerHTML = `
+                <!-- Seller Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">⭐ ${parseFloat(user.sellerRating || 0).toFixed(1)}</div>
+                        <div class="stat-label">Rating</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${user.totalSales || 0}</div>
+                        <div class="stat-label">Total Sales</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">
+                            ${user.isVerifiedSeller ? 
+                                '<span style="color: #059669;">✓</span>' : 
+                                '<span style="color: #dc2626;">✗</span>'}
+                        </div>
+                        <div class="stat-label">Verified</div>
+                    </div>
+                </div>
+                
+                <!-- Seller Information -->
+                <div class="profile-card">
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            ${(user.username || 'S').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <div class="profile-name">${user.username}</div>
+                            <p style="color: #6b7280; margin-bottom: 0.5rem;">
+                                Seller
+                            </p>
+                            ${user.isVerifiedSeller ? 
+                                '<span class="verified-badge">✓ Verified Seller</span>' : 
+                                '<span class="not-verified-badge">✗ Not Verified</span>'}
+                        </div>
+                    </div>
+                    
+                    <h3 class="section-title">📦 Shipping Information</h3>
+                    <div class="info-grid">
+                        <div class="info-item" style="grid-column: 1 / -1;">
+                            <div class="info-label">Full Shipping Address</div>
+                            <div class="info-value">${user.sellerAddress || '<span style="color: #9ca3af;">Not provided</span>'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">City</div>
+                            <div class="info-value">${user.sellerCity || '<span style="color: #9ca3af;">Not provided</span>'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">ZIP / Postal Code</div>
+                            <div class="info-value">${user.sellerZipCode || '<span style="color: #9ca3af;">Not provided</span>'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Country</div>
+                            <div class="info-value">${user.sellerCountry || '<span style="color: #9ca3af;">Not provided</span>'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Contact Phone</div>
+                            <div class="info-value">${user.sellerPhone || '<span style="color: #9ca3af;">Not provided</span>'}</div>
+                        </div>
+                    </div>
+                    
+                    <p style="margin-top: 1.5rem; padding: 1rem; background: #eff6ff; border-radius: 0.5rem; color: #1e40af; font-size: 0.9rem;">
+                        🔒 <strong>Privacy Note:</strong> Only your city and country are visible to buyers. 
+                        Your full address and phone number are kept private.
+                    </p>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <a href="/seller/dashboard" class="btn" style="background: #2563eb; color: white; text-decoration: none;">
+                        📊 Seller Dashboard
+                    </a>
+                    <a href="/orders" class="btn" style="background: #f3f4f6; color: #374151; text-decoration: none;">
+                        📦 My Orders
+                    </a>
+                    <button onclick="handleLogout()" class="btn btn-danger">
+                        🚪 Logout
+                    </button>
+                </div>
+            `;
+        }
+        
+        async function handleLogout() {
+            if (!confirm('Are you sure you want to logout?')) return;
+            
+            const token = getCookie('token');
+            try {
+                await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    credentials: 'include'
+                });
+            } catch (error) {}
+            
+            deleteCookie('token');
+            window.location.href = '/';
+        }
+        
+        loadProfile();
+    </script>
+</body>
+</html>

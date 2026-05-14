@@ -1,0 +1,66 @@
+<nav class="navbar">
+    <div class="container">
+        <a href="/" class="navbar-brand">⚡ ElectroMart</a>
+        
+        <ul class="navbar-nav">
+            <li><a href="/products" class="nav-link">Products</a></li>
+            <% if (locals.isAuthenticated) { %>
+                <li><a href="/cart" class="nav-link">Cart 🛒</a></li>
+                <li><a href="/orders" class="nav-link">Orders</a></li>
+            <% } %>
+        </ul>
+        
+        <ul class="navbar-nav">
+            <% if (locals.isAuthenticated) { %>
+                <li style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="color: #6b7280; font-size: 0.875rem;">
+                        👤 <%= locals.user.fullName || locals.user.username %>
+                    </span>
+                </li>
+                <% if (locals.user.role === 'seller' || locals.user.role === 'admin') { %>
+                    <li><a href="/profile" class="nav-link">📋 Profile</a></li>
+                    <li><a href="/seller/dashboard" class="nav-link">📊 Dashboard</a></li>
+                <% } else { %>
+                    <li><a href="/seller/dashboard" class="nav-link">Become a Seller</a></li>
+                <% } %>
+                <li>
+                    <a href="#" onclick="logout(event)" class="nav-link" style="color: #dc2626;">
+                        🚪 Logout
+                    </a>
+                </li>
+            <% } else { %>
+                <li><a href="/login" class="nav-link">Login</a></li>
+                <li><a href="/register" class="nav-link">Register</a></li>
+            <% } %>
+        </ul>
+    </div>
+</nav>
+
+<script>
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    
+    function deleteCookie(name) {
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    }
+    
+    async function logout(event) {
+        event.preventDefault();
+        if (!confirm('Are you sure you want to logout?')) return;
+        
+        const token = getCookie('token');
+        try {
+            await fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                credentials: 'include'
+            });
+        } catch (error) {}
+        
+        deleteCookie('token');
+        window.location.href = '/';
+    }
+</script>

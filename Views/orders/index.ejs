@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders - ElectroMart</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <%- include('../partials/header') %>
+    
+    <main class="container">
+        <div style="padding: 2rem 0;">
+            <h1>My Orders</h1>
+            
+            <div id="ordersContent">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </main>
+    
+    <%- include('../partials/footer') %>
+    
+   <script>
+    async function loadOrders() {
+        try {
+            const token = getCookie('token');
+            
+            if (!token) {
+                showLoginRequired();
+                return;
+            }
+
+            const response = await fetch('/api/orders', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
+            if (response.status === 401) {
+                showLoginRequired();
+                return;
+            }
+            
+            const data = await response.json();
+            console.log('Orders data:', data);
+            displayOrders(data.orders);
+        } catch (error) {
+            console.error('Error loading orders:', error);
+            document.getElementById('ordersContent').innerHTML = 
+                '<div class="alert alert-error">Error loading orders. Please try again.</div>';
+        }
+    }
+    
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    
+    function showLoginRequired() {
+        document.getElementById('ordersContent').innerHTML = `
+            <div style="text-align: center; padding: 3rem;">
+                <p style="font-size: 1.2rem; color: #6b7280; margin-bottom: 1rem;">
+                    Please login to view your orders
+                </p>
+                <a href="/login" class="btn btn-primary" style="text-decoration: none;">Login</a>
+            </div>
+        `;
+    }
+    
+    function displayOrders(orders) {
+        const container = document.getElementById('ordersContent');
+        
+        if (!orders || orders.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 3rem;">
+                    <p style="font-size: 1.2rem; color: #6b7280;">No orders yet</p>
+                    <a href="/products" class="btn btn-primary" style="margin-top: 1rem; display: inline-block; text-decoration: none;">
+                        Start Shopping
+                    </a>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = orders.map(order => {
+            const totalAmount = parseFloat(order.totalAmount) || 0;
+            const orderDate = new Date(order.createdAt).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            let productsHtml = '';
+            if (order.Products && order.Products.length > 0) {
+                productsHtml = order.Products.map(product => {
+                    const price = parseFloat(product.price) || 0;
+                    const quantity = product.OrderItem ? (parseInt(product.OrderItem.quantity) || 1) : 1;
+                    const itemTotal = price * quantity;
+                    
+                    return `
+                        <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb;">
+                            <div>
+                                <span style="font-weight: 500;">${product.name || 'Unknown Product'}</span>
+                                <span style="color: #6b7280; margin-left: 0.5rem;">x${quantity}</span>
+                            </div>
+                            <span style="font-weight: 500;">$${itemTotal.toFixed(2)}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            const statusColors = {
+                'pending': '#fbbf24',
+                'processing': '#3b82f6',
+                'shipped': '#8b5cf6',
+                'delivered': '#10b981',
+                'cancelled': '#ef4444'
+            };
+            
+            const statusColor = statusColors[order.status] || '#6b7280';
+            
+            return `
+                <div style="background: white; padding: 1.5rem; border-radius: 0.5rem; 
+                            box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                        <div>
+                            <h3 style="margin-bottom: 0.25rem;">Order #${order.id}</h3>
+                            <p style="color: #6b7280; font-size: 0.875rem;">${orderDate}</p>
+                        </div>
+                        <span style="padding: 0.25rem 0.75rem; border-radius: 1rem; 
+                                   background: ${statusColor}20; color: ${statusColor}; 
+                                   font-weight: 500; font-size: 0.875rem; text-transform: capitalize;">
+                            ${order.status}
+                        </span>
+                    </div>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        ${productsHtml}
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; 
+                                padding-top: 1rem; border-top: 2px solid #e5e7eb;">
+                        <div>
+                            <p style="font-size: 0.875rem; color: #6b7280;">
+                                Shipping: ${order.shippingAddress || 'N/A'}
+                            </p>
+                            <p style="font-size: 0.875rem; color: #6b7280;">
+                                Payment: ${order.paymentMethod || 'N/A'}
+                            </p>
+                        </div>
+                        <div style="text-align: right;">
+                            <p style="font-size: 0.875rem; color: #6b7280;">Total Amount</p>
+                            <p style="font-size: 1.5rem; font-weight: bold; color: #2563eb;">
+                                $${totalAmount.toFixed(2)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    loadOrders();
+</script>
+</body>
+</html>
